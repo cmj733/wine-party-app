@@ -9,7 +9,6 @@ type Kind = 'wine' | 'cheese';
 export default function AddItemPage() {
   const router = useRouter();
   const [guestId, setGuestId] = useState<number | null>(null);
-  const [isLocked, setIsLocked] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
 
   const [kind, setKind] = useState<Kind>('wine');
@@ -51,7 +50,6 @@ export default function AddItemPage() {
           router.push('/items'); // no adding when locked
           return;
         }
-        setIsLocked(!!f?.locked);
       } catch (e: any) {
         setErr(e.message ?? 'Failed to check event status');
       } finally {
@@ -74,9 +72,24 @@ export default function AddItemPage() {
           setErr('Please fill all required wine fields.');
           return;
         }
-        const viv = Number(Number(vivinoAvg).toFixed(1));
+
+const vivinoNum = Number(vivinoAvg.replace(',', '.'));
+if (!isFinite(vivinoNum) || vivinoNum < 0 || vivinoNum > 5) {
+  setErr('Please enter a valid Vivino score between 0 and 5.');
+  return;
+}
+
+const abvNum = abv.trim()
+  ? Number(abv.replace(',', '.'))
+  : null;
+
+if (abvNum !== null && (!isFinite(abvNum) || abvNum < 0 || abvNum > 25)) {
+  setErr('Please enter a valid ABV between 0 and 25.');
+  return;
+}
+        const viv = Number(Number(vivinoAvg.replace(',', '.')).toFixed(1));
         const { error } = await supabase.rpc('add_wine_with_details', {
-          p_abv: abv ? Number(abv) : null,
+          p_abv: abv ? Number(abv.replace(',', '.')) : null,
           p_country: country.trim(),
           p_grape_varieties: grapes.trim(),
           p_guest_id: guestId,
@@ -144,7 +157,6 @@ export default function AddItemPage() {
   }) as const;
 
   if (loading) return <main style={wrap}><p>Loading…</p></main>;
-  if (isLocked)  return <main style={wrap}><p>Event is locked.</p></main>;
 
   return (
     <main style={wrap}>
@@ -212,10 +224,8 @@ export default function AddItemPage() {
                 </label>
                 <input
                   style={input}
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="100"
+                  type="text"
+		  inputMode="decimal"
                   value={abv}
                   onChange={(e) => setAbv(e.target.value)}
                   placeholder="e.g., 13.5"
@@ -245,10 +255,8 @@ export default function AddItemPage() {
               </label>
               <input
                 style={input}
-                type="number"
-                step="0.1"
-                min="0"
-                max="5"
+                type="text"
+		inputMode="decimal"
                 value={vivinoAvg}
                 onChange={(e) => setVivinoAvg(e.target.value)}
                 placeholder="e.g., 3.9"

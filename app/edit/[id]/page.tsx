@@ -39,7 +39,6 @@ export default function EditItemPage() {
   const itemId = Number(params.id);
 
   const [guestId, setGuestId] = useState<number | null>(null);
-  const [, setIsLocked] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -84,7 +83,6 @@ export default function EditItemPage() {
         if (flagsErr) throw flagsErr;
         const f = flags?.[0];
         if (f?.locked) { router.push('/items'); return; }
-        setIsLocked(!!f?.locked);
 
         // load items you can see/own; find the one
         const { data: list, error: listErr } = await supabase.rpc('get_items_with_owner', { p_guest_id: g });
@@ -149,15 +147,34 @@ export default function EditItemPage() {
     if (!item || !guestId) return;
     if (!canSubmit) { setErr('Please fill all required fields.'); return; }
 
+if (item.kind === 'wine') {
+    const vivinoNum = Number(vivinoAvg.replace(',', '.'));
+    if (!isFinite(vivinoNum) || vivinoNum < 0 || vivinoNum > 5) {
+      setErr('Please enter a valid Vivino score between 0 and 5.');
+      return;
+    }
+
+    const abvNum = abv.trim()
+      ? Number(abv.replace(',', '.'))
+      : null;
+
+    if (abvNum !== null && (!isFinite(abvNum) || abvNum < 0 || abvNum > 25)) {
+      setErr('Please enter a valid ABV between 0 and 25.');
+      return;
+    }
+  }
+
     try {
       setBusy(true);
       setErr(null);
 
       if (item.kind === 'wine') {
-        const oneDec = vivinoAvg ? Number(Number(vivinoAvg).toFixed(1)) : null;
+        const oneDec = vivinoAvg
+  ? Number(Number(vivinoAvg.replace(',', '.')).toFixed(1))
+  : null;
         const { error } = await supabase.rpc('update_wine_with_details', {
           p_item_id: item.item_id,
-          p_abv: abv ? Number(abv) : null,
+          p_abv: abv ? Number(abv.replace(',', '.')) : null,
           p_country: country.trim(),
           p_grape_varieties: grapes.trim(),
           p_name: name.trim(),
@@ -271,10 +288,8 @@ export default function EditItemPage() {
                 </label>
                 <input
                   style={input}
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="100"
+                  type="text"
+		  inputMode="decimal"
                   value={abv}
                   onChange={e => setAbv(e.target.value)}
                   placeholder="e.g., 13.5"
@@ -301,12 +316,10 @@ export default function EditItemPage() {
                 Vivino avg score <span style={requiredStar}>*</span>
               </label>
               <input
-                style={input}
-                type="number"
-                step="0.1"
-                min="0"
-                max="5"
-                value={vivinoAvg}
+  		style={input}
+  		type="text"
+  		inputMode="decimal"
+  		value={vivinoAvg}
                 onChange={e => setVivinoAvg(e.target.value)}
                 placeholder="e.g., 3.9"
                 required

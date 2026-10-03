@@ -763,18 +763,37 @@ function ItemEditor({ row, isAdmin, actorId }: { row: ItemRow; isAdmin: boolean;
   const btn = { padding: '6px 10px', borderRadius: 8, border: '1px solid #999', cursor: 'pointer' } as const;
 
   async function saveWine() {
+const vivinoNum =
+  wine.vivino_avg === ''
+    ? null
+    : Number(String(wine.vivino_avg).replace(',', '.'));
+
+if (vivinoNum !== null && (!isFinite(vivinoNum) || vivinoNum < 0 || vivinoNum > 5)) {
+  alert('Please enter a valid Vivino score between 0 and 5.');
+  return;
+}
+
+const abvNum =
+  wine.abv === ''
+    ? null
+    : Number(String(wine.abv).replace(',', '.'));
+
+if (abvNum !== null && (!isFinite(abvNum) || abvNum < 0 || abvNum > 25)) {
+  alert('Please enter a valid ABV between 0 and 25.');
+  return;
+}
     try {
       setBusy(true);
       const { error } = await supabase.rpc('update_wine_with_details_admin', {
         p_actor_guest_id: actorId,
         p_item_id: row.item_id,
-        p_abv: wine.abv === '' ? null : Number(wine.abv),
+        p_abv: wine.abv === '' ? null : Number(String(wine.abv).replace(',', '.')),
         p_country: wine.country || null,
         p_grape_varieties: wine.grapes || null,
         p_name: wine.name || null,
         p_store: wine.store || null,
         p_vintage: wine.vintage || null,
-        p_vivino_avg: wine.vivino_avg === '' ? null : Number(wine.vivino_avg),
+        p_vivino_avg: wine.vivino_avg === '' ? null : Number(String(wine.vivino_avg).replace(',', '.')),
         p_vivino_url: wine.vivino_url || null,
       });
       if (error) throw error;
@@ -968,7 +987,7 @@ function RatingsEditor({
   async function save() {
     if (!eventId || !selectedGuest || !selectedItem) { alert('Pick guest and item.'); return; }
     if (!promptId || !answer.trim()) { alert('Prompt and answer are required.'); return; }
-    const sNum = Number(score);
+    const sNum = Number(score.trim().replace(',', '.'));
     if (!isFinite(sNum) || sNum < 0 || sNum > 5) { alert('Score must be 0–5.'); return; }
 
     try {

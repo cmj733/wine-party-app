@@ -150,7 +150,7 @@ async function onSubmit(e: React.FormEvent) {
   if (!guestId || !eventId || !itemId) return;
 
   const trimmedScore = score.trim();
-  const sNum = Number(trimmedScore);
+  const sNum = Number(trimmedScore.replace(',', '.'));
   if (!(trimmedScore.length > 0) || !isFinite(sNum) || sNum < 0 || sNum > 5) {
     setErr('Please enter a valid score between 0 and 5.');
     return;
