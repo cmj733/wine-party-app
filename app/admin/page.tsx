@@ -376,7 +376,7 @@ async function removeGuestAdmin(targetGuestId: number, targetGuestName: string) 
   const wrap = { maxWidth: 980, margin: '32px auto', padding: 16 } as const;
   const card = { border: '1px solid #eee', borderRadius: 12, padding: 16, marginBottom: 16 } as const;
   const label = { fontWeight: 700 } as const;
-  const input = { border: '1px solid #ccc', borderRadius: 8, padding: '8px 10px', width: '100%', minWidth: 0, boxSizing: 'border-box', } as const;
+  const input = { border: '1px solid #ccc', borderRadius: 8, padding: '8px 10px' } as const;
   const btn = { padding: '8px 12px', borderRadius: 8, border: '1px solid #999', cursor: 'pointer' } as const;
   const toggle = (on: boolean) => ({
     padding: '8px 10px',
@@ -546,7 +546,7 @@ async function removeGuestAdmin(targetGuestId: number, targetGuestName: string) 
         )}
 
         {guestProgress.length > 0 && (
-          <div style={{ display: 'grid', gap: 10, minWidth: 0, width: '100%' }}>
+          <div style={{ display: 'grid', gap: 10 }}>
             {guestProgress.map((g) => {
               const complete = g.rated_count === g.total_items;
 
@@ -939,7 +939,7 @@ function RatingsEditor({
   const wineItems = useMemo(() => items.filter(i => i.kind === 'wine'), [items]);
   const cheeseItems = useMemo(() => items.filter(i => i.kind === 'cheese'), [items]);
 
-  const input = { border: '1px solid #ccc', borderRadius: 8, padding: '8px 10px' } as const;
+  const input = { border: '1px solid #ccc', borderRadius: 8, padding: '8px 10px', width: '100%', minWidth: 0, boxSizing: 'border-box' } as const;
   const btn = { padding: '8px 12px', borderRadius: 8, border: '1px solid #999', cursor: 'pointer' } as const;
 
   async function loadExisting() {
@@ -993,7 +993,7 @@ function RatingsEditor({
   }
 
   return (
-    <div style={{ display: 'grid', gap: 10 }}>
+    <div style={{ display: 'grid', gap: 10, minWidth: 0, width: '100%' }}>
       {/* Guest */}
       <div style={{ display: 'grid', gap: 6 }}>
         <div style={{ fontWeight: 700 }}>Guest</div>
