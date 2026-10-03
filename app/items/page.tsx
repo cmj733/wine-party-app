@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import EventNav from '../components/EventNav';
 
 type ItemRow = {
   item_id: number;
@@ -37,20 +38,33 @@ type MyRating = {
   created_at: string;
 };
 
+type RatingProgress = {
+  item_id: number;
+  rating_count: number;
+  guest_count: number;
+};
+
 export default function ItemsPage() {
   const router = useRouter();
   const [items, setItems] = useState<ItemRow[]>([]);
   const [myRatings, setMyRatings] = useState<MyRating[]>([]);
+  const [ratingProgress, setRatingProgress] = useState<RatingProgress[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [guestId, setGuestId] = useState<number | null>(null);
   const [isLocked, setIsLocked] = useState<boolean>(false);
   const [isRevealed, setIsRevealed] = useState<boolean>(false);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [eventName, setEventName] = useState<string | null>(null);
 
   const [busyId, setBusyId] = useState<number | null>(null);
 
   const ratedSet = useMemo(() => new Set(myRatings.map(r => r.item_id)), [myRatings]);
+  const progressByItem = useMemo(
+  () => new Map(ratingProgress.map(r => [r.item_id, r])),
+  [ratingProgress]
+);
 
   useEffect(() => {
     const g = Number(localStorage.getItem('guestId'));
@@ -64,23 +78,38 @@ export default function ItemsPage() {
     (async () => {
       try {
         setLoading(true);
-        const [{ data: flags, error: flagsErr }, { data: itemsData, error: itemsErr }, { data: ratingsData, error: ratingsErr }] =
-          await Promise.all([
-            supabase.rpc('get_event_flags_for_guest', { p_guest_id: g }),
-            supabase.rpc('get_items_for_guest', { p_guest_id: g }),
-            supabase.rpc('get_my_ratings', { p_guest_id: g }),
-          ]);
-
+const [
+  { data: flags, error: flagsErr },
+  { data: itemsData, error: itemsErr },
+  { data: ratingsData, error: ratingsErr },
+  { data: progressData, error: progressErr },
+  { data: me, error: meErr },
+] = await Promise.all([
+  supabase.rpc('get_event_flags_for_guest', { p_guest_id: g }),
+  supabase.rpc('get_items_for_guest', { p_guest_id: g }),
+  supabase.rpc('get_my_ratings', { p_guest_id: g }),
+  supabase.rpc('get_rating_progress_for_guest', { p_guest_id: g }),
+  supabase
+    .from('guests')
+    .select('is_admin')
+    .eq('id', g)
+    .maybeSingle(),
+]);
         if (flagsErr) throw flagsErr;
         if (itemsErr) throw itemsErr;
         if (ratingsErr) throw ratingsErr;
+        if (progressErr) throw progressErr;
+        if (meErr) throw meErr;
 
         const f = flags?.[0];
         setIsLocked(!!f?.locked);
         setIsRevealed(!!f?.revealed);
+        setIsAdmin(!!me?.is_admin);
+        setEventName(f?.event_name ?? null);
 
         setItems((itemsData ?? []) as ItemRow[]);
         setMyRatings(ratingsData ?? []);
+        setRatingProgress((progressData ?? []) as RatingProgress[]);
       } catch (e: any) {
         setErr(e.message ?? 'Failed to load items');
       } finally {
@@ -120,37 +149,9 @@ export default function ItemsPage() {
     return rated ? 'Change Rating' : 'Rate';
   }
 
-  function handleViewSummary(e: React.MouseEvent) {
-    if (!isRevealed) {
-      e.preventDefault();
-      alert('Results not available yet.');
-    }
-  }
-
-  async function handleWhoAmI() {
-    try {
-      if (!guestId) return;
-      const { data, error } = await supabase.from('guests').select('name').eq('id', guestId).maybeSingle();
-      if (error) throw error;
-      alert(data?.name ? `You are signed in as: ${data.name}` : 'Name not found.');
-    } catch (e: any) {
-      alert(e.message ?? 'Failed to get current user');
-    }
-  }
-
-  function handleSignOutToNewUser(e: React.MouseEvent) {
-    e.preventDefault();
-    if (!confirm('Sign in as a different user?\n\nThis will clear your current sign-in from this browser.')) return;
-    localStorage.removeItem('guestId');
-    localStorage.removeItem('eventId');
-    localStorage.setItem('forceJoin', '1');
-    router.push('/join');
-  }
-
-  // ---------- Styles (copied to match Results section boxes) ----------update public.events set locked = true where code = 'WINEANDCHEESE2025';
+  // ---------- Styles ----------update public.events set locked = true where code = 'WINEANDCHEESE2025';
 
   const pageWrap   = { maxWidth: 920, margin: '32px auto', padding: 16 } as const;
-  const sectionH2  = { fontSize: 22, fontWeight: 700, marginBottom: 12 } as const;
   const smallGrey  = { fontSize: 13, color: '#555' } as const;
 
   const boxBase    = { borderRadius: 12, padding: 16, marginBottom: 24, border: '1px solid #eee' } as const;
@@ -165,11 +166,15 @@ export default function ItemsPage() {
     textDecoration: 'none',
     cursor: 'pointer',
   } as const;
-  const editLink = { textDecoration: 'underline' } as const;
-  const footerLink = { fontSize: 13, color: '#555', textDecoration: 'underline' } as const
 
 return (
   <main style={pageWrap}>
+<EventNav
+  eventName={eventName}
+  currentPage="items"
+  revealed={isRevealed}
+  isAdmin={isAdmin}
+/>
     {err && <p style={{ color: 'crimson' }}>Error: {err}</p>}
     {loading && <p>Loading…</p>}
 
@@ -197,8 +202,16 @@ return (
 
         {/* WINES (boxed like Results) */}
         <section style={boxWineRed}>
-          <h2 style={sectionH2}>Wines</h2>
-
+          <h2 style={{
+  fontFamily: "var(--font-limelight), serif",
+  fontSize: 26,
+  fontWeight: 500,
+  textTransform: 'uppercase',
+  letterSpacing: '0.06em',
+}}
+>
+Wines
+</h2>
           {wines.length === 0 ? (
             <p>No wines yet.</p>
           ) : (
@@ -206,6 +219,7 @@ return (
               {wines.map(w => {
                 const rated = ratedSet.has(w.item_id);
                 const canEdit = !isLocked && guestId && w.brought_by_id === guestId;
+                const progress = progressByItem.get(w.item_id);
                 return (
                   <li key={w.item_id} style={{ padding: '10px 0', borderBottom: '1px solid #eee' }}>
                     {/* Header line */}
@@ -255,9 +269,28 @@ return (
 
                     {/* Actions */}
                     <div style={{ marginTop: 8, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                      <Link href={`/rate/${w.item_id}`} style={btnLink}>
-                        {actionLabelFor(w.item_id)}
-                      </Link>
+{isRevealed && !rated ? (
+  <span
+    style={{
+      ...btnLink,
+      color: '#999',
+      borderColor: '#ccc',
+      background: '#f5f5f5',
+      cursor: 'default',
+    }}
+  >
+    View Rating
+  </span>
+) : (
+  <Link href={`/rate/${w.item_id}`} style={btnLink}>
+    {actionLabelFor(w.item_id)}
+  </Link>
+)}
+{!isRevealed && progress && (
+  <span style={smallGrey}>
+    Rated by {progress.rating_count} of {progress.guest_count} guests
+  </span>
+)}
 
                       {canEdit ? (
                         <>
@@ -283,8 +316,16 @@ return (
 
         {/* CHEESES (boxed like Results) */}
         <section style={boxCheese}>
-          <h2 style={sectionH2}>Cheeses</h2>
-
+          <h2 style={{
+  fontFamily: "var(--font-limelight), serif",
+  fontSize: 26,
+  fontWeight: 500,
+  textTransform: 'uppercase',
+  letterSpacing: '0.06em',
+}}
+>
+Cheeses
+</h2>
           {cheeses.length === 0 ? (
             <p>No cheeses yet.</p>
           ) : (
@@ -292,6 +333,7 @@ return (
               {cheeses.map(c => {
                 const rated = ratedSet.has(c.item_id);
                 const canEdit = !isLocked && guestId && c.brought_by_id === guestId;
+                const progress = progressByItem.get(c.item_id);
                 return (
                   <li key={c.item_id} style={{ padding: '10px 0', borderBottom: '1px solid #eee' }}>
                     {/* Header line */}
@@ -316,9 +358,28 @@ return (
 
                     {/* Actions */}
                     <div style={{ marginTop: 8, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                      <Link href={`/rate/${c.item_id}`} style={btnLink}>
-                        {actionLabelFor(c.item_id)}
-                      </Link>
+                      {isRevealed && !rated ? (
+  <span
+    style={{
+      ...btnLink,
+      color: '#999',
+      borderColor: '#ccc',
+      background: '#f5f5f5',
+      cursor: 'default',
+    }}
+  >
+    View Rating
+  </span>
+) : (
+  <Link href={`/rate/${c.item_id}`} style={btnLink}>
+    {actionLabelFor(c.item_id)}
+  </Link>
+)}
+{!isRevealed && progress && (
+  <span style={smallGrey}>
+    Rated by {progress.rating_count} of {progress.guest_count} guests
+  </span>
+)}
 
                       {canEdit ? (
                         <>
@@ -341,45 +402,6 @@ return (
             </ul>
           )}
         </section>
-
-{/* Footer links */}
-<div style={{ marginTop: 16, display: 'grid', gap: 6 }}>
-  <div>
-    <Link
-      href="/results"
-      onClick={handleViewSummary}
-      style={{
-        ...footerLink,
-        fontSize: 16, // bigger than before
-        color: isRevealed ? '#000' : '#555',
-        textDecoration: isRevealed ? 'underline' : 'none',
-      }}
-    >
-      View Results Summary →
-    </Link>
-  </div>
-  <div>
-    <button
-      onClick={handleWhoAmI}
-      style={{ ...footerLink, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-    >
-      Check which user I&apos;m signed in as
-    </button>
-  </div>
-  {!isRevealed && (
-    <div>
-      <a href="#" onClick={handleSignOutToNewUser} style={footerLink}>
-        Sign in as a new user
-      </a>
-    </div>
-  )}
-  <div>
-    <Link href="/admin" style={footerLink}>
-      Admin page →
-    </Link>
-  </div>
-</div>
-
       </>
     )}
   </main>

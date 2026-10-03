@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import EventNav from '../components/EventNav';
 
 type ItemRow = {
   item_id: number;
@@ -31,20 +31,33 @@ type ItemRow = {
   cheese_pairing_suggestions?: string | null;
 };
 
-type Guest = { id: number; name: string };
+type Guest = {id: number; name: string; is_admin: boolean; };
 type PromptRow = { id: number; prompt: string; short_prompt: string };
+type GuestProgress = {
+  guest_id: number;
+  guest_name: string;
+  rated_count: number;
+  total_items: number;
+  missing_items: string;
+};
 
 export default function AdminPage() {
   const [guestId, setGuestId] = useState<number | null>(null);
   const [eventId, setEventId] = useState<number | null>(null);
+  const [eventName, setEventName] = useState<string | null>(null);
 
   const [flags, setFlags] = useState<{ locked: boolean; revealed: boolean } | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [adminCode, setAdminCode] = useState('');
 
+  const [newEventName, setNewEventName] = useState('');
+  const [newEventCode, setNewEventCode] = useState('');
+  const [newEventAdminCode, setNewEventAdminCode] = useState('');
+
   const [items, setItems] = useState<ItemRow[]>([]);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [prompts, setPrompts] = useState<PromptRow[]>([]);
+  const [guestProgress, setGuestProgress] = useState<GuestProgress[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -69,6 +82,7 @@ export default function AdminPage() {
         if (flagsErr) throw flagsErr;
         const f = flagsData?.[0];
         setFlags({ locked: !!f?.locked, revealed: !!f?.revealed });
+setEventName(f?.event_name ?? null);
 
         // Me (is_admin + event_id)
         const { data: me, error: meErr } = await supabase.from('guests').select('is_admin, event_id').eq('id', g).maybeSingle();
@@ -84,7 +98,7 @@ export default function AdminPage() {
         // Guests in event
         const { data: guestList, error: gErr } = await supabase
           .from('guests')
-          .select('id, name')
+          .select('id, name, is_admin')
           .eq('event_id', me?.event_id ?? e)
           .order('name', { ascending: true });
         if (gErr) throw gErr;
@@ -152,14 +166,214 @@ export default function AdminPage() {
       setSaving(false);
     }
   }
+async function createEvent() {
+  if (!guestId) return;
+
+  if (!newEventName.trim()) {
+    alert('Enter an event name.');
+    return;
+  }
+
+  if (!newEventCode.trim()) {
+    alert('Enter an event code.');
+    return;
+  }
+
+  if (!newEventAdminCode.trim()) {
+    alert('Enter an admin code for the new event.');
+    return;
+  }
+
+  if (!confirm(
+    `Create new event "${newEventName.trim()}"?\n\n` +
+    `Event code: ${newEventCode.trim().toUpperCase()}\n\n` +
+    `You will be switched into the new event automatically.`
+  )) {
+    return;
+  }
+
+  try {
+    setSaving(true);
+    setErr(null);
+
+    const { data, error } = await supabase.rpc('admin_create_event', {
+      p_actor_guest_id: guestId,
+      p_event_name: newEventName.trim(),
+      p_event_code: newEventCode.trim(),
+      p_admin_code: newEventAdminCode.trim(),
+    });
+
+    if (error) throw error;
+
+    const created = data?.[0];
+
+    if (!created?.event_id || !created?.guest_id) {
+      throw new Error('Event was created but the new event details were not returned.');
+    }
+
+    localStorage.setItem('eventId', String(created.event_id));
+    localStorage.setItem('guestId', String(created.guest_id));
+
+    alert(
+      `Event created!\n\n` +
+      `Event: ${newEventName.trim()}\n` +
+      `Event code: ${newEventCode.trim().toUpperCase()}`
+    );
+
+    window.location.href = '/items';
+  } catch (e: any) {
+    setErr(e.message ?? 'Failed to create event');
+  } finally {
+    setSaving(false);
+  }
+}
+
+async function loadGuestProgress() {
+  if (!guestId) return;
+
+  try {
+    setSaving(true);
+    setErr(null);
+
+    const { data, error } = await supabase.rpc(
+      'get_guest_rating_progress_admin',
+      { p_actor_guest_id: guestId }
+    );
+
+    if (error) throw error;
+
+    setGuestProgress((data ?? []) as GuestProgress[]);
+  } catch (e: any) {
+    setErr(e.message ?? 'Failed to load guest progress');
+  } finally {
+    setSaving(false);
+  }
+}
+
+async function deleteGuest(targetGuestId: number, targetGuestName: string) {
+  if (!guestId || !isAdmin) return;
+
+  const progress = guestProgress.find(
+    g => g.guest_id === targetGuestId
+  );
+
+  const ratingCount = progress?.rated_count ?? 0;
+
+  const warning =
+    ratingCount > 0
+      ? `Delete ${targetGuestName}?\n\nThis guest has ${ratingCount} rating${ratingCount === 1 ? '' : 's'}. Their ratings will also be permanently deleted.`
+      : `Delete ${targetGuestName}?\n\nThis will permanently remove them from the event.`;
+
+  if (!confirm(warning)) return;
+
+  try {
+    setSaving(true);
+    setErr(null);
+
+    const { error } = await supabase.rpc('admin_delete_guest', {
+      p_actor_guest_id: guestId,
+      p_guest_id: targetGuestId,
+    });
+
+    if (error) throw error;
+
+    setGuests(current =>
+      current.filter(g => g.id !== targetGuestId)
+    );
+
+    setGuestProgress(current =>
+      current.filter(g => g.guest_id !== targetGuestId)
+    );
+
+    alert(`${targetGuestName} has been removed.`);
+  } catch (e: any) {
+    setErr(e.message ?? 'Failed to delete guest');
+  } finally {
+    setSaving(false);
+  }
+}
+
+async function makeGuestAdmin(targetGuestId: number, targetGuestName: string) {
+  if (!guestId || !isAdmin) return;
+
+  if (
+    !confirm(
+      `Make ${targetGuestName} an admin?\n\nThey will have access to all admin controls for this event.`
+    )
+  ) {
+    return;
+  }
+
+  try {
+    setSaving(true);
+    setErr(null);
+
+    const { error } = await supabase.rpc('admin_make_guest_admin', {
+      p_actor_guest_id: guestId,
+      p_guest_id: targetGuestId,
+    });
+
+    if (error) throw error;
+
+    setGuests(current =>
+      current.map(g =>
+        g.id === targetGuestId
+          ? { ...g, is_admin: true }
+          : g
+      )
+    );
+
+    alert(`${targetGuestName} is now an admin.`);
+  } catch (e: any) {
+    setErr(e.message ?? 'Failed to make guest an admin');
+  } finally {
+    setSaving(false);
+  }
+}
+
+async function removeGuestAdmin(targetGuestId: number, targetGuestName: string) {
+  if (!guestId || !isAdmin) return;
+
+  if (
+    !confirm(
+      `Remove admin access from ${targetGuestName}?\n\nThey will remain a guest, but will no longer have access to admin controls.`
+    )
+  ) {
+    return;
+  }
+
+  try {
+    setSaving(true);
+    setErr(null);
+
+    const { error } = await supabase.rpc('admin_remove_guest_admin', {
+      p_actor_guest_id: guestId,
+      p_guest_id: targetGuestId,
+    });
+
+    if (error) throw error;
+
+    setGuests(current =>
+      current.map(g =>
+        g.id === targetGuestId
+          ? { ...g, is_admin: false }
+          : g
+      )
+    );
+
+    alert(`${targetGuestName}'s admin access has been removed.`);
+  } catch (e: any) {
+    setErr(e.message ?? 'Failed to remove admin access');
+  } finally {
+    setSaving(false);
+  }
+}
 
   if (loading) {
     return <main style={{ maxWidth: 980, margin: '32px auto', padding: 16 }}><p>Loading…</p></main>;
   }
 
   const wrap = { maxWidth: 980, margin: '32px auto', padding: 16 } as const;
-  const h1 = { fontSize: 26, fontWeight: 800, marginBottom: 8 } as const;
-  const smallLink = { textDecoration: 'underline', color: '#000', display: 'inline-block', marginBottom: 8 } as const;
   const card = { border: '1px solid #eee', borderRadius: 12, padding: 16, marginBottom: 16 } as const;
   const label = { fontWeight: 700 } as const;
   const input = { border: '1px solid #ccc', borderRadius: 8, padding: '8px 10px' } as const;
@@ -177,12 +391,12 @@ export default function AdminPage() {
 
   return (
     <main style={wrap}>
-      <h1 style={h1}>Admin</h1>
-      <div style={{ display: 'grid', gap: 4, marginBottom: 12 }}>
-        <Link href="/items" style={smallLink}>← To Items</Link>
-        <Link href="/results" style={smallLink}>← To Results Summary</Link>
-      </div>
-
+<EventNav
+  eventName={eventName}
+  currentPage="admin"
+  revealed={!!flags?.revealed}
+  isAdmin={isAdmin}
+/>
       {err && <p style={{ color: 'crimson' }}>{err}</p>}
 
       {/* Admin mode */}
@@ -207,11 +421,67 @@ export default function AdminPage() {
             <button style={btn} onClick={disableAdmin} disabled={saving}>Disable</button>
           )}
         </div>
-        <div style={{ marginTop: 8, fontSize: 13, color: isAdmin ? '#0a7' : '#999' }}>
+        <div style={{ marginTop: 8, fontSize: 13, color: isAdmin ? '#0a7' : '#991b1b', }}>
           {isAdmin ? 'Admin mode is ON' : 'Admin mode is OFF'}
         </div>
       </section>
+      {/* Create New Event */}
+      <section style={card}>
+        <div style={{ marginBottom: 12 }}>
+          <div style={label}>Create new event</div>
+          <p style={{ color: '#555', margin: '6px 0 0' }}>
+            Create a new tasting event. You will automatically become the first guest and admin.
+          </p>
+        </div>
 
+        <div style={{ display: 'grid', gap: 8 }}>
+          <input
+            style={input}
+            type="text"
+            placeholder="Event name"
+            value={newEventName}
+            onChange={(e) => setNewEventName(e.target.value)}
+            disabled={!isAdmin || saving}
+          />
+
+          <input
+            style={input}
+            type="text"
+            placeholder="Event code"
+            value={newEventCode}
+            onChange={(e) => setNewEventCode(e.target.value.toUpperCase())}
+            disabled={!isAdmin || saving}
+          />
+
+          <input
+            style={input}
+            type="password"
+            placeholder="Admin code for new event"
+            value={newEventAdminCode}
+            onChange={(e) => setNewEventAdminCode(e.target.value)}
+            disabled={!isAdmin || saving}
+          />
+
+          <div>
+            <button
+              style={{
+                ...btn,
+                opacity: isAdmin ? 1 : 0.6,
+              }}
+              onClick={createEvent}
+              disabled={!isAdmin || saving}
+            >
+              Create Event
+            </button>
+          </div>
+
+          {!isAdmin && (
+            <div style={{ fontSize: 13, color: '#999' }}>
+              Enable Admin mode above to create a new event.
+            </div>
+          )}
+        </div>
+      </section>
       {/* Flags */}
       <section style={card}>
         <div style={{ marginBottom: 12 }}>
@@ -247,6 +517,183 @@ export default function AdminPage() {
           </div>
         ) : <p>Loading flags…</p>}
       </section>
+
+      {/* Guest Progress */}
+      <section style={card}>
+        <div style={{ marginBottom: 12 }}>
+          <div style={label}>Guest progress</div>
+          <p style={{ color: '#555', margin: '6px 0 0' }}>
+            See who has finished rating and which items are still missing.
+          </p>
+        </div>
+
+        <button
+          style={{
+            ...btn,
+            opacity: isAdmin ? 1 : 0.6,
+            marginBottom: guestProgress.length > 0 ? 14 : 0,
+          }}
+          onClick={loadGuestProgress}
+          disabled={!isAdmin || saving}
+        >
+          Refresh Progress
+        </button>
+
+        {!isAdmin && (
+          <div style={{ fontSize: 13, color: '#999', marginTop: 8 }}>
+            Enable Admin mode above to view guest progress.
+          </div>
+        )}
+
+        {guestProgress.length > 0 && (
+          <div style={{ display: 'grid', gap: 10 }}>
+            {guestProgress.map((g) => {
+              const complete = g.rated_count === g.total_items;
+
+              return (
+                <div key={g.guest_id}>
+                  <div>
+                    <strong>{g.guest_name}:</strong>{' '}
+                    {g.rated_count}/{g.total_items}
+                    {complete && ' ✓'}
+                  </div>
+
+                  {!complete && g.missing_items && (
+                    <div
+                      style={{
+                        fontSize: 13,
+                        color: '#555',
+                        marginTop: 2,
+                      }}
+                    >
+                      Missing: {g.missing_items}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+{/* Guest Management */}
+<section style={card}>
+  <div style={{ marginBottom: 12 }}>
+    <div style={label}>Manage guests</div>
+    <p style={{ color: '#555', margin: '6px 0 0' }}>
+      Remove accidental or duplicate guests from this event.
+    </p>
+  </div>
+
+  <div style={{ display: 'grid', gap: 10 }}>
+    {guests.map(g => {
+      const isMe = g.id === guestId;
+      const progress = guestProgress.find(
+        p => p.guest_id === g.id
+      );
+
+      return (
+        <div
+          key={g.id}
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+            borderBottom: '1px solid #eee',
+            paddingBottom: 10,
+          }}
+        >
+          <div>
+            <strong>{g.name}</strong>
+
+            {isMe && (
+              <span style={{ fontSize: 13, color: '#555' }}>
+                {' '}— You
+              </span>
+            )}
+
+            {progress && (
+              <div
+                style={{
+                  fontSize: 13,
+                  color: '#555',
+                  marginTop: 2,
+                }}
+              >
+                {progress.rated_count}/{progress.total_items} items rated
+              </div>
+            )}
+          </div>
+
+          {!isMe && (
+  <div
+    style={{
+      display: 'flex',
+      gap: 6,
+      alignItems: 'center',
+      flexShrink: 0,
+    }}
+  >
+{g.is_admin ? (
+  <button
+    style={{
+      ...btn,
+      borderColor: '#991b1b',
+      color: '#991b1b',
+      opacity: isAdmin ? 1 : 0.6,
+      whiteSpace: 'nowrap',
+    }}
+    onClick={() => removeGuestAdmin(g.id, g.name)}
+    disabled={!isAdmin || saving}
+  >
+    Remove Admin
+  </button>
+) : (
+  <button
+    style={{
+      ...btn,
+      opacity: isAdmin ? 1 : 0.6,
+      whiteSpace: 'nowrap',
+    }}
+    onClick={() => makeGuestAdmin(g.id, g.name)}
+    disabled={!isAdmin || saving}
+  >
+    Make Admin
+  </button>
+)}
+
+    <button
+      style={{
+        ...btn,
+        borderColor: '#991b1b',
+        color: '#991b1b',
+        opacity: isAdmin ? 1 : 0.6,
+      }}
+      onClick={() => deleteGuest(g.id, g.name)}
+      disabled={!isAdmin || saving}
+    >
+      Remove
+    </button>
+  </div>
+)}
+        </div>
+      );
+    })}
+  </div>
+
+  {!isAdmin && (
+    <div
+      style={{
+        fontSize: 13,
+        color: '#999',
+        marginTop: 10,
+      }}
+    >
+      Enable Admin mode above to manage guests.
+    </div>
+  )}
+</section>
 
       {/* Manage Items */}
       <section style={card}>
@@ -288,6 +735,7 @@ export default function AdminPage() {
 /* ---------- Item Editor (admin) ---------- */
 function ItemEditor({ row, isAdmin, actorId }: { row: ItemRow; isAdmin: boolean; actorId: number }) {
   const [busy, setBusy] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const [wine, setWine] = useState({
     name: row.wine_name ?? '',
@@ -310,7 +758,6 @@ function ItemEditor({ row, isAdmin, actorId }: { row: ItemRow; isAdmin: boolean;
     pairing: row.cheese_pairing_suggestions ?? '',
   });
 
-  const small = { fontSize: 13, color: '#555' } as const;
   const input = { border: '1px solid #ccc', borderRadius: 8, padding: '6px 8px' } as const;
   const rowBox = { border: '1px solid #eee', borderRadius: 10, padding: 12, marginBottom: 10 } as const;
   const btn = { padding: '6px 10px', borderRadius: 8, border: '1px solid #999', cursor: 'pointer' } as const;
@@ -392,14 +839,40 @@ function ItemEditor({ row, isAdmin, actorId }: { row: ItemRow; isAdmin: boolean;
     return () => window.removeEventListener('admin-remove-item', onRemove as any);
   }, [row.item_id]);
 
-  return (
-    <div style={rowBox}>
-      <div style={{ marginBottom: 6 }}>
-        <strong>{row.kind === 'wine' ? `Wine #${row.number}` : `Cheese #${row.number}`}</strong>
-        <span style={small}> — item #{row.item_id}</span>
+return (
+  <div style={rowBox}>
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 12,
+      }}
+    >
+      <div>
+        <strong>
+          {row.kind === 'wine'
+            ? `Wine #${row.number}${wine.name ? ` — ${wine.name}` : ''}`
+            : `Cheese #${row.number}${cheese.name ? ` — ${cheese.name}` : ''}`}
+        </strong>
       </div>
 
-      {row.kind === 'wine' ? (
+      <button
+        type="button"
+        style={{
+          ...btn,
+          padding: '4px 8px',
+          fontSize: 13,
+        }}
+        onClick={() => setExpanded(!expanded)}
+      >
+        {expanded ? 'Collapse' : 'Edit'}
+      </button>
+    </div>
+
+    {expanded && (
+      <div style={{ marginTop: 10 }}>
+        {row.kind === 'wine' ? (
         <div style={{ display: 'grid', gap: 6 }}>
           <input style={input} placeholder="Name" value={wine.name} onChange={e => setWine({ ...wine, name: e.target.value })} />
           <input style={input} placeholder="Country" value={wine.country} onChange={e => setWine({ ...wine, country: e.target.value })} />
@@ -432,9 +905,11 @@ function ItemEditor({ row, isAdmin, actorId }: { row: ItemRow; isAdmin: boolean;
             <button style={{ ...btn, borderColor: '#c00', color: '#c00', opacity: isAdmin ? 1 : 0.6 }} onClick={delItem} disabled={!isAdmin || busy}>Delete</button>
           </div>
         </div>
-      )}
-    </div>
-  );
+              )}
+      </div>
+    )}
+  </div>
+);
 }
 
 /* ---------- Ratings Editor (admin) ---------- */

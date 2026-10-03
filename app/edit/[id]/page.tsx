@@ -39,7 +39,7 @@ export default function EditItemPage() {
   const itemId = Number(params.id);
 
   const [guestId, setGuestId] = useState<number | null>(null);
-  const [isLocked, setIsLocked] = useState<boolean>(false);
+  const [, setIsLocked] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);

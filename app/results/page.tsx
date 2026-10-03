@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import EventNav from '../components/EventNav';
 
 type Row = {
   event_id: number;
@@ -21,6 +22,7 @@ type ItemsLookup = {
   item_id: number;
   kind: 'wine' | 'cheese';
   number: number;
+  brought_by_id: number | null;
   // wine
   wine_name: string | null;
   wine_vintage: string | null; // TEXT
@@ -34,13 +36,21 @@ type ItemsLookup = {
   cheese_style: string | null;
 };
 
+type Guest = {
+  id: number;
+  name: string;
+};
+
 export default function ResultsPage() {
   const router = useRouter();
   const [rows, setRows] = useState<Row[]>([]);
   const [revealed, setRevealed] = useState<boolean>(false);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [eventName, setEventName] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<ItemsLookup[]>([]);
+  const [guests, setGuests] = useState<Guest[]>([]);
 
   useEffect(() => {
     const g = Number(localStorage.getItem('guestId'));
@@ -50,15 +60,32 @@ export default function ResultsPage() {
     (async () => {
       try {
         setLoading(true);
-        const { data: flags } = await supabase.rpc('get_event_flags_for_guest', { p_guest_id: g });
-        const f = flags?.[0];
-        if (!f?.revealed) {
-          setRevealed(false);
-          setErr('Results are not revealed yet.');
-          setLoading(false);
-          return;
-        }
-        setRevealed(true);
+const { data: flags, error: flagsErr } = await supabase.rpc(
+  'get_event_flags_for_guest',
+  { p_guest_id: g }
+);
+if (flagsErr) throw flagsErr;
+
+const f = flags?.[0];
+setRevealed(!!f?.revealed);
+setEventName(f?.event_name ?? null);
+
+const { data: me, error: meErr } = await supabase
+  .from('guests')
+  .select('is_admin')
+  .eq('id', g)
+  .maybeSingle();
+
+if (meErr) throw meErr;
+
+const admin = !!me?.is_admin;
+setIsAdmin(admin);
+
+if (!f?.revealed && !admin) {
+  setErr('Results are not revealed yet.');
+  setLoading(false);
+  return;
+}
 
         const { data, error } = await supabase.rpc('get_event_results_for_guest', { p_guest_id: g });
         if (error) throw error;
@@ -70,6 +97,7 @@ export default function ResultsPage() {
           item_id: it.item_id,
           kind: it.kind,
           number: it.number,
+          brought_by_id: it.brought_by_id,
           wine_name: it.wine_name,
           wine_vintage: it.wine_vintage,
           wine_country: it.wine_country,
@@ -81,6 +109,14 @@ export default function ResultsPage() {
           cheese_style: it.cheese_style,
         })) as ItemsLookup[];
         setItems(map);
+const { data: guestData, error: guestErr } = await supabase
+  .from('guests')
+  .select('id, name')
+  .eq('event_id', e);
+
+if (guestErr) throw guestErr;
+
+setGuests((guestData ?? []) as Guest[]);
       } catch (e: any) {
         setErr(e.message ?? 'Failed to load results');
       } finally {
@@ -94,6 +130,11 @@ export default function ResultsPage() {
     for (const it of items) m.set(it.item_id, it);
     return m;
   }, [items]);
+  const guestNameById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const g of guests) m.set(g.id, g.name);
+    return m;
+  }, [guests]);
 
   const wines   = useMemo(() => rows.filter(r => r.kind === 'wine'), [rows]);
   const cheeses = useMemo(() => rows.filter(r => r.kind === 'cheese'), [rows]);
@@ -162,6 +203,20 @@ export default function ResultsPage() {
       );
     return groupByRank(sorted, r => r.stddev_score!, 1);
   }
+function lowestRatedGroups(list: Row[]): RankGroup[] {
+  const rated = list.filter(
+    r => r.avg_score != null && (r.score_count ?? 0) > 0
+  );
+
+  if (!rated.length) return [];
+
+  const lowestAvg = Math.min(...rated.map(r => r.avg_score!));
+
+  return [{
+    rank: 1,
+    rows: rated.filter(r => r.avg_score === lowestAvg),
+  }];
+}
 
   const winesTop3      = useMemo(() => top3Groups(wines), [wines]);
   const cheesesTop3    = useMemo(() => top3Groups(cheeses), [cheeses]);
@@ -169,10 +224,10 @@ export default function ResultsPage() {
   const wineLeastAlign = useMemo(() => maxDiffGroups(wines), [wines]);      // 🔀
   const wineDivisive   = useMemo(() => mostDivisiveGroups(wines), [wines]); // ⚡️
   const cheeseDivisive = useMemo(() => mostDivisiveGroups(cheeses), [cheeses]);
+  const wineToughCrowd = useMemo(() => lowestRatedGroups(wines), [wines]);
+  const cheeseToughCrowd = useMemo(() => lowestRatedGroups(cheeses), [cheeses]);
 
   // ---------- UI helpers & styles ----------
-  const h1    = { fontSize: 28, fontWeight: 800, marginBottom: 24 } as const;
-  const h2    = { fontSize: 22, fontWeight: 700, marginBottom: 12 } as const;
   const small = { fontSize: 13, color: '#666' } as const;
 
   const boxBase    = { borderRadius: 12, padding: 16, marginBottom: 24, border: '1px solid #eee' } as const;
@@ -184,7 +239,7 @@ export default function ResultsPage() {
 
   // Icon-only left column + content right column.
   // Small label line sits above the item header; icon aligns with that small label.
-  function rowLayout(icon: string, label: string, header: JSX.Element, statsEl: JSX.Element | null) {
+  function rowLayout(icon: string, label: string, header: React.ReactNode, statsEl: React.ReactNode) {
     return (
       <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr', alignItems: 'start', gap: 8 }}>
         <div style={{ width: 60, textAlign: 'center', lineHeight: '24px', transform: 'translateY(2px)' }}>
@@ -234,9 +289,33 @@ export default function ResultsPage() {
       const link = it?.vivino_url ? (
         <> • <a href={it.vivino_url!} target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>Vivino link</a></>
       ) : null;
-      return <div style={statsLineStyle}>Avg: {avg} • SD: {sd} • Votes: {cnt} • Vivino: {viv} • Δ: {dif}{link}</div>;
+      return (
+  <>
+    <div style={statsLineStyle}>
+      Avg: {avg} • SD: {sd} • Votes: {cnt} • Vivino: {viv} • Δ: {dif}{link}
+    </div>
+
+    {it?.brought_by_id && (
+      <div style={{ fontSize: 13, color: '#555', marginTop: 2 }}>
+        Brought by: {guestNameById.get(it.brought_by_id) ?? 'Unknown'}
+      </div>
+    )}
+  </>
+);
     }
-    return <div style={statsLineStyle}>Avg: {avg} • SD: {sd} • Votes: {cnt}</div>;
+    return (
+  <>
+    <div style={statsLineStyle}>
+      Avg: {avg} • SD: {sd} • Votes: {cnt}
+    </div>
+
+    {it?.brought_by_id && (
+      <div style={{ fontSize: 13, color: '#555', marginTop: 2 }}>
+        Brought by: {guestNameById.get(it.brought_by_id) ?? 'Unknown'}
+      </div>
+    )}
+  </>
+);
   }
 
   // Render helpers
@@ -281,6 +360,35 @@ export default function ResultsPage() {
     );
   }
 
+function renderToughCrowd(kind: 'wine' | 'cheese', groups: RankGroup[]) {
+  if (!groups.length) return <p style={small}>No data.</p>;
+
+  return (
+    <ul>
+      {groups.map(g =>
+        g.rows.map((row, i) => {
+          const it = byId.get(row.item_id);
+          const label = `Tough Crowd Award${g.rows.length > 1 ? ' (tie)' : ''}`;
+
+          return (
+            <li
+              key={`${kind}-tough-${row.item_id}-${i}`}
+              style={{ marginBottom: 10 }}
+            >
+              {rowLayout(
+                '👎',
+                label,
+                itemHeader(it, row),
+                itemStats(it, row)
+              )}
+            </li>
+          );
+        })
+      )}
+    </ul>
+  );
+}
+
   function renderAligned(groups: RankGroup[], label: 'Most Aligned with Vivino' | 'Least Aligned with Vivino', icon: string) {
     if (!groups.length) return <p style={small}>No data.</p>;
     return (
@@ -302,17 +410,43 @@ export default function ResultsPage() {
 
   return (
     <main style={{ maxWidth: 920, margin: '32px auto', padding: 16 }}>
-      <h1 style={h1}>Results</h1>
+<EventNav
+  eventName={eventName}
+  currentPage="results"
+  revealed={revealed}
+  isAdmin={isAdmin}
+/>
+      {!loading && isAdmin && !revealed && (
+  <p
+    style={{
+      color: '#555',
+      fontSize: 13,
+      marginTop: -14,
+      marginBottom: 20,
+    }}
+  >
+    Admin preview — results are still hidden from guests.
+  </p>
+)}
 
       {loading && <p>Loading…</p>}
       {err && !loading && <p style={{ color: 'crimson' }}>{err}</p>}
 
-      {!loading && revealed && !err && (
+      {!loading && (revealed || isAdmin) && !err && (
         <>
           {/* WINES */}
           <section style={{ ...boxWineRed }}>
-            <h2 style={h2}>Wines</h2>
-
+            <h2
+style={{
+  fontFamily: "var(--font-limelight), serif",
+  fontSize: 26,
+  fontWeight: 500,
+  textTransform: 'uppercase',
+  letterSpacing: '0.06em',
+}}
+>
+Wines
+</h2>
             {renderTop3('wine', winesTop3)}
 
             <div style={spacer} />
@@ -326,23 +460,36 @@ export default function ResultsPage() {
             <div style={{ height: 12 }} />
 
             {renderAligned(wineLeastAlign, 'Least Aligned with Vivino', '🔀')}
+
+            <div style={spacer} />
+
+            {renderToughCrowd('wine', wineToughCrowd)}
+
           </section>
 
           {/* CHEESES */}
           <section style={{ ...boxCheese }}>
-            <h2 style={h2}>Cheeses</h2>
-
+            <h2 style={{
+  fontFamily: "var(--font-limelight), serif",
+  fontSize: 26,
+  fontWeight: 500,
+  textTransform: 'uppercase',
+  letterSpacing: '0.06em',
+}}
+>
+Cheeses
+</h2>
             {renderTop3('cheese', cheesesTop3)}
 
             <div style={spacer} />
 
             {renderDivisive('cheese', cheeseDivisive)}
-          </section>
 
-          <div style={{ marginTop: 12, display: 'grid', gap: 6 }}>
-            <a href="/items" style={{ textDecoration: 'underline' }}>← Back to Items</a>
-            <a href="/results/detail" style={{ textDecoration: 'underline' }}>View All Ratings (detail) →</a>
-          </div>
+            <div style={spacer} />
+
+            {renderToughCrowd('cheese', cheeseToughCrowd)}
+
+          </section>
         </>
       )}
     </main>

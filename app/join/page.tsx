@@ -57,14 +57,6 @@ export default function JoinPage() {
     fontWeight: 600,
   } as const;
 
-  const footerLink = {
-    fontSize: 13,
-    color: '#555',
-    textDecoration: 'underline',
-    marginTop: 12,
-    display: 'inline-block',
-  } as const;
-
   return (
     <main style={{ maxWidth: 480, margin: '40px auto', padding: 16 }}>
       <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 20 }}>Join an Event</h1>
@@ -101,13 +93,6 @@ export default function JoinPage() {
           {loading ? 'Joining…' : 'Join'}
         </button>
       </form>
-
-      {/* Footer link to Admin */}
-      <div style={{ marginTop: 24 }}>
-        <a href="/admin" style={footerLink}>
-          Go to Admin page →
-        </a>
-      </div>
-    </main>
+          </main>
   );
 }
