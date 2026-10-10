@@ -39,6 +39,7 @@ export default function EditItemPage() {
   const itemId = Number(params.id);
 
   const [guestId, setGuestId] = useState<number | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -74,9 +75,19 @@ export default function EditItemPage() {
     }
     setGuestId(g);
 
-    (async () => {
-      try {
-        setLoading(true);
+(async () => {
+  try {
+    setLoading(true);
+
+    const { data: guest, error: guestErr } = await supabase
+      .from('guests')
+      .select('is_admin')
+      .eq('id', g)
+      .eq('event_id', e)
+      .single();
+
+    if (guestErr) throw guestErr;
+    setIsAdmin(guest?.is_admin === true);
 
         // lock → push away
         const { data: flags, error: flagsErr } = await supabase.rpc('get_event_flags_for_guest', { p_guest_id: g });
@@ -134,13 +145,24 @@ export default function EditItemPage() {
   }, [router, itemId]);
 
   const canSubmit = useMemo(() => {
-    if (!item) return false;
-    if (item.kind === 'wine') {
-      return !!(name.trim() && country.trim() && vintage.trim() && grapes.trim() && vivinoAvg.trim() && vivinoUrl.trim());
-    } else {
-      return !!(name.trim() && country.trim() && milkType.trim());
-    }
-  }, [item, name, country, vintage, grapes, vivinoAvg, vivinoUrl, milkType]);
+  if (!item) return false;
+
+  // Admins can save entries with missing fields.
+  if (isAdmin) return true;
+
+  if (item.kind === 'wine') {
+    return !!(
+      name.trim() &&
+      country.trim() &&
+      vintage.trim() &&
+      grapes.trim() &&
+      vivinoAvg.trim() &&
+      vivinoUrl.trim()
+    );
+  } else {
+    return !!(name.trim() && country.trim() && milkType.trim());
+  }
+}, [item, isAdmin, name, country, vintage, grapes, vivinoAvg, vivinoUrl, milkType]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -148,12 +170,17 @@ export default function EditItemPage() {
     if (!canSubmit) { setErr('Please fill all required fields.'); return; }
 
 if (item.kind === 'wine') {
-    const vivinoNum = Number(vivinoAvg.replace(',', '.'));
-    if (!isFinite(vivinoNum) || vivinoNum < 0 || vivinoNum > 5) {
+    const vivinoNum = vivinoAvg.trim()
+      ? Number(vivinoAvg.replace(',', '.'))
+      : null;
+
+    if (
+      vivinoNum !== null &&
+      (!isFinite(vivinoNum) || vivinoNum < 0 || vivinoNum > 5)
+    ) {
       setErr('Please enter a valid Vivino score between 0 and 5.');
       return;
     }
-
     const abvNum = abv.trim()
       ? Number(abv.replace(',', '.'))
       : null;
@@ -175,22 +202,22 @@ if (item.kind === 'wine') {
         const { error } = await supabase.rpc('update_wine_with_details', {
           p_item_id: item.item_id,
           p_abv: abv ? Number(abv.replace(',', '.')) : null,
-          p_country: country.trim(),
-          p_grape_varieties: grapes.trim(),
-          p_name: name.trim(),
+          p_country: country.trim() || null,
+	  p_grape_varieties: grapes.trim() || null,
+	  p_name: name.trim() || null,
           p_store: wineStore.trim() || null,
-          p_vintage: vintage.trim(),
+          p_vintage: vintage.trim() || null,
           p_vivino_avg: oneDec,
-          p_vivino_url: vivinoUrl.trim(),
+          p_vivino_url: vivinoUrl.trim() || null,
           p_pairing: winePairing.trim() || null, // NEW
         });
         if (error) throw error;
       } else {
         const { error } = await supabase.rpc('update_cheese_with_details', {
           p_item_id: item.item_id,
-          p_country: country.trim(),
-          p_milk_type: milkType, // TEXT
-          p_name: name.trim(),
+          p_country: country.trim() || null,
+	  p_milk_type: milkType || null,
+	  p_name: name.trim() || null,
           p_store: cheeseStore.trim() || null,
           p_style: style.trim() || null,
           p_pairing: cheesePairing.trim() || null, // NEW
@@ -238,7 +265,7 @@ if (item.kind === 'wine') {
         {/* Name */}
         <div style={field}>
           <label style={label}>
-            Name <span style={requiredStar}>*</span>
+            Name {!isAdmin && <span style={requiredStar}>*</span>}
           </label>
           <input
             style={input}
@@ -246,14 +273,14 @@ if (item.kind === 'wine') {
             value={name}
             onChange={e => setName(e.target.value)}
             placeholder={kind === 'wine' ? 'e.g., Astrale Rosso' : 'e.g., Comté'}
-            required
+            required={!isAdmin}
           />
         </div>
 
         {/* Country */}
         <div style={field}>
           <label style={label}>
-            Country <span style={requiredStar}>*</span>
+            Country {!isAdmin && <span style={requiredStar}>*</span>}
           </label>
           <input
             style={input}
@@ -261,7 +288,7 @@ if (item.kind === 'wine') {
             value={country}
             onChange={e => setCountry(e.target.value)}
             placeholder="e.g., Italy"
-            required
+            required={!isAdmin}
           />
         </div>
 
@@ -270,7 +297,7 @@ if (item.kind === 'wine') {
             <div style={row}>
               <div style={field}>
                 <label style={label}>
-                  Vintage <span style={requiredStar}>*</span>
+                  Vintage {!isAdmin && <span style={requiredStar}>*</span>}
                 </label>
                 <input
                   style={input}
@@ -278,7 +305,7 @@ if (item.kind === 'wine') {
                   value={vintage}
                   onChange={e => setVintage(e.target.value)}
                   placeholder="e.g., 2019, blend"
-                  required
+                  required={!isAdmin}
                 />
               </div>
 
@@ -299,7 +326,7 @@ if (item.kind === 'wine') {
 
             <div style={field}>
               <label style={label}>
-                Grape varieties <span style={requiredStar}>*</span>
+                Grape varieties {!isAdmin && <span style={requiredStar}>*</span>}
               </label>
               <input
                 style={input}
@@ -307,13 +334,13 @@ if (item.kind === 'wine') {
                 value={grapes}
                 onChange={e => setGrapes(e.target.value)}
                 placeholder="e.g., Sangiovese, Merlot"
-                required
+                required={!isAdmin}
               />
             </div>
 
             <div style={field}>
               <label style={label}>
-                Vivino avg score <span style={requiredStar}>*</span>
+                Vivino avg score {!isAdmin && <span style={requiredStar}>*</span>}
               </label>
               <input
   		style={input}
@@ -322,13 +349,13 @@ if (item.kind === 'wine') {
   		value={vivinoAvg}
                 onChange={e => setVivinoAvg(e.target.value)}
                 placeholder="e.g., 3.9"
-                required
+                required={!isAdmin}
               />
             </div>
 
             <div style={field}>
               <label style={label}>
-                Vivino URL <span style={requiredStar}>*</span>
+                Vivino URL {!isAdmin && <span style={requiredStar}>*</span>}
               </label>
               <input
                 style={input}
@@ -336,7 +363,7 @@ if (item.kind === 'wine') {
                 value={vivinoUrl}
                 onChange={e => setVivinoUrl(e.target.value)}
                 placeholder="https://www.vivino.com/…"
-                required
+                required={!isAdmin}
               />
             </div>
 
@@ -369,13 +396,13 @@ if (item.kind === 'wine') {
           <>
             <div style={field}>
               <label style={label}>
-                Milk type <span style={requiredStar}>*</span>
+                Milk type {!isAdmin && <span style={requiredStar}>*</span>}
               </label>
               <select
                 style={input}
                 value={milkType}
                 onChange={e => setMilkType(e.target.value)}
-                required
+                required={!isAdmin}
               >
                 <option value="">Select milk type</option>
                 <option value="cow">Cow</option>

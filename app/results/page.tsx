@@ -176,7 +176,7 @@ setGuests((guestData ?? []) as Guest[]);
   // Most aligned (min diff_vivino), least aligned (max diff_vivino) – wines only
   function minDiffGroups(list: Row[]): RankGroup[] {
     const sorted = [...list]
-      .filter(r => r.diff_vivino != null && r.avg_score != null)
+      .filter(r => r.vivino_avg != null && r.diff_vivino != null && r.avg_score != null)
       .sort((a, b) =>
         (a.diff_vivino! - b.diff_vivino!) ||
         ((b.score_count ?? 0) - (a.score_count ?? 0))
@@ -185,7 +185,7 @@ setGuests((guestData ?? []) as Guest[]);
   }
   function maxDiffGroups(list: Row[]): RankGroup[] {
     const sorted = [...list]
-      .filter(r => r.diff_vivino != null && r.avg_score != null)
+      .filter(r => r.vivino_avg != null && r.diff_vivino != null && r.avg_score != null)
       .sort((a, b) =>
         (b.diff_vivino! - a.diff_vivino!) ||
         ((b.score_count ?? 0) - (a.score_count ?? 0))

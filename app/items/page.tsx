@@ -149,7 +149,7 @@ const [
     return rated ? 'Change Rating' : 'Rate';
   }
 
-  // ---------- Styles ----------update public.events set locked = true where code = 'WINEANDCHEESE2025';
+  // ---------- Styles ----------
 
   const pageWrap   = { maxWidth: 920, margin: '32px auto', padding: 16 } as const;
   const smallGrey  = { fontSize: 13, color: '#555' } as const;
@@ -158,14 +158,27 @@ const [
   const boxWineRed = { ...boxBase, borderLeft: '6px solid #b91c1c', boxShadow: '0 1px 0 rgba(185,28,28,0.15)' } as const;
   const boxCheese  = { ...boxBase, borderLeft: '6px solid #e6b800', boxShadow: '0 1px 0 rgba(230,184,0,0.15)' } as const;
 
-  const btnLink = {
-    display: 'inline-block',
-    padding: '8px 10px',
-    border: '1px solid #999',
-    borderRadius: 8,
-    textDecoration: 'none',
-    cursor: 'pointer',
-  } as const;
+const btnLink = {
+  display: 'inline-block',
+  padding: '8px 10px',
+  border: '2px solid',
+  borderRadius: 8,
+  textDecoration: 'none',
+  cursor: 'pointer',
+  background: 'transparent',
+  color: 'inherit',
+} as const;
+
+function ratingButtonStyle(kind: 'wine' | 'cheese', rated: boolean) {
+  return {
+    ...btnLink,
+    borderColor: isRevealed || rated
+      ? '#888888'
+      : kind === 'wine'
+        ? '#991b1b'
+        : '#c99b16',
+  };
+}
 
 return (
   <main style={pageWrap}>
@@ -272,17 +285,19 @@ Wines
 {isRevealed && !rated ? (
   <span
     style={{
-      ...btnLink,
-      color: '#999',
-      borderColor: '#ccc',
-      background: '#f5f5f5',
+      ...ratingButtonStyle('wine', rated),
+      opacity: 0.4,
       cursor: 'default',
     }}
+    aria-disabled="true"
   >
     View Rating
   </span>
 ) : (
-  <Link href={`/rate/${w.item_id}`} style={btnLink}>
+  <Link
+    href={`/rate/${w.item_id}`}
+    style={ratingButtonStyle('wine', rated)}
+  >
     {actionLabelFor(w.item_id)}
   </Link>
 )}
@@ -291,7 +306,6 @@ Wines
     Rated by {progress.rating_count} of {progress.guest_count} guests
   </span>
 )}
-
                       {canEdit ? (
                         <>
                           <span aria-hidden>•</span>
@@ -358,24 +372,25 @@ Cheeses
 
                     {/* Actions */}
                     <div style={{ marginTop: 8, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                      {isRevealed && !rated ? (
+{isRevealed && !rated ? (
   <span
     style={{
-      ...btnLink,
-      color: '#999',
-      borderColor: '#ccc',
-      background: '#f5f5f5',
+      ...ratingButtonStyle('cheese', rated),
+      opacity: 0.4,
       cursor: 'default',
     }}
+    aria-disabled="true"
   >
     View Rating
   </span>
 ) : (
-  <Link href={`/rate/${c.item_id}`} style={btnLink}>
+  <Link
+    href={`/rate/${c.item_id}`}
+    style={ratingButtonStyle('cheese', rated)}
+  >
     {actionLabelFor(c.item_id)}
   </Link>
-)}
-{!isRevealed && progress && (
+)}{!isRevealed && progress && (
   <span style={smallGrey}>
     Rated by {progress.rating_count} of {progress.guest_count} guests
   </span>

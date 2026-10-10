@@ -18,7 +18,7 @@ export default function EventNav({
   const resultsAvailable = revealed || isAdmin;
 
   const linkStyle = (active: boolean): React.CSSProperties => ({
-    color: '#000',
+    color: 'inherit',
     fontWeight: active ? 700 : 400,
     textDecoration: active ? 'underline' : 'none',
     textUnderlineOffset: 3,
