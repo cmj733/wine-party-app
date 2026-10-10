@@ -379,15 +379,16 @@ async function removeGuestAdmin(targetGuestId: number, targetGuestName: string) 
   const input = { border: '1px solid #ccc', borderRadius: 8, padding: '8px 10px' } as const;
   const btn = { padding: '8px 12px', borderRadius: 8, border: '1px solid #999', cursor: 'pointer' } as const;
   const toggle = (on: boolean) => ({
-    padding: '8px 10px',
-    borderRadius: 10,
-    border: on ? '2px solid #10b981' : '1px solid #bbb',
-    background: on ? '#ECFDF5' : '#fff',
-    fontWeight: on ? 700 : 600,
-    cursor: 'pointer',
-    minWidth: 120,
-    textAlign: 'center' as const
-  });
+  padding: '8px 10px',
+  borderRadius: 10,
+  border: on ? '2px solid #10b981' : '1px solid var(--foreground)',
+  background: on ? '#065f46' : 'var(--background)',
+  color: 'var(--foreground)',
+  fontWeight: on ? 700 : 600,
+  cursor: 'pointer',
+  minWidth: 120,
+  textAlign: 'center' as const
+});
 
   return (
     <main style={wrap}>
