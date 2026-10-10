@@ -122,26 +122,34 @@ const [
   const cheeses = items.filter(i => i.kind === 'cheese').sort((a, b) => a.number - b.number);
 
   async function handleDelete(itemId: number) {
-    if (!confirm('Delete this item? (Numbers will resequence)')) return;
-    try {
-      setBusyId(itemId);
-      const { error } = await supabase.rpc('delete_item_and_resequence', { p_item_id: itemId });
-      if (error) throw error;
+  if (!guestId) return;
 
-      if (guestId) {
-        const [{ data: itemsData }, { data: ratingsData }] = await Promise.all([
-          supabase.rpc('get_items_for_guest', { p_guest_id: guestId }),
-          supabase.rpc('get_my_ratings', { p_guest_id: guestId }),
-        ]);
-        setItems((itemsData ?? []) as ItemRow[]);
-        setMyRatings(ratingsData ?? []);
-      }
-    } catch (e: any) {
-      alert(e.message ?? 'Delete failed');
-    } finally {
-      setBusyId(null);
-    }
+  if (!confirm('Delete this item? Its number may be reused by the next guest.')) return;
+
+  try {
+    setBusyId(itemId);
+
+    const { error } = await supabase.rpc('delete_item_and_renumber', {
+      p_item_id: itemId,
+      p_guest_id: guestId,
+    });
+
+    if (error) throw error;
+
+    const [{ data: itemsData }, { data: ratingsData }] = await Promise.all([
+      supabase.rpc('get_items_for_guest', { p_guest_id: guestId }),
+      supabase.rpc('get_my_ratings', { p_guest_id: guestId }),
+    ]);
+
+    setItems((itemsData ?? []) as ItemRow[]);
+    setMyRatings(ratingsData ?? []);
+
+  } catch (e: any) {
+    alert(e.message ?? 'Delete failed');
+  } finally {
+    setBusyId(null);
   }
+}
 
   function actionLabelFor(itemId: number) {
     const rated = ratedSet.has(itemId);
@@ -175,8 +183,8 @@ function ratingButtonStyle(kind: 'wine' | 'cheese', rated: boolean) {
     borderColor: isRevealed || rated
       ? '#888888'
       : kind === 'wine'
-        ? '#991b1b'
-        : '#c99b16',
+  	? '#b91c1c'
+  	: '#e6b800',
   };
 }
 

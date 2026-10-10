@@ -707,7 +707,17 @@ async function removeGuestAdmin(targetGuestId: number, targetGuestName: string) 
         <div style={{ display: 'grid', gap: 8 }}>
           {items.length === 0 ? <p>No items yet.</p> : items
             .sort((a, b) => (a.kind === b.kind ? a.number - b.number : a.kind === 'wine' ? -1 : 1))
-            .map(row => <ItemEditor key={row.item_id} row={row} isAdmin={isAdmin} actorId={guestId!} />)}
+            .map(row => (
+  <ItemEditor
+    key={row.item_id}
+    row={row}
+    isAdmin={isAdmin}
+    actorId={guestId!}
+    onDeleted={(itemId) => {
+      setItems((prev) => prev.filter((item) => item.item_id !== itemId));
+    }}
+  />
+))}
         </div>
       </section>
 
@@ -733,7 +743,17 @@ async function removeGuestAdmin(targetGuestId: number, targetGuestName: string) 
 }
 
 /* ---------- Item Editor (admin) ---------- */
-function ItemEditor({ row, isAdmin, actorId }: { row: ItemRow; isAdmin: boolean; actorId: number }) {
+function ItemEditor({
+  row,
+  isAdmin,
+  actorId,
+  onDeleted,
+}: {
+  row: ItemRow;
+  isAdmin: boolean;
+  actorId: number;
+  onDeleted: (itemId: number) => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
@@ -826,7 +846,7 @@ if (abvNum !== null && (!isFinite(abvNum) || abvNum < 0 || abvNum > 25)) {
   }
 
   async function delItem() {
-    if (!confirm(`Delete ${row.kind} #${row.number}? This will resequence the rest.`)) return;
+    if (!confirm(`Delete ${row.kind} #${row.number}? Existing item numbers will not change.`)) return;
     try {
       setBusy(true);
       const { error } = await supabase.rpc('admin_delete_item_and_resequence', {
@@ -834,12 +854,7 @@ if (abvNum !== null && (!isFinite(abvNum) || abvNum < 0 || abvNum > 25)) {
         p_item_id: row.item_id,
       });
       if (error) throw error;
-      alert('Deleted. Refreshing list…');
-      // soft-remove from local list
-      // (Parent will not re-fetch to keep the page snappy.)
-      // You can manually refresh the page if needed.
-      const ev = new CustomEvent('admin-remove-item', { detail: row.item_id });
-      window.dispatchEvent(ev);
+      onDeleted(row.item_id);
     } catch (e: any) {
       alert(e.message ?? 'Delete failed');
     } finally {

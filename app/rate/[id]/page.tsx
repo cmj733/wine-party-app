@@ -33,6 +33,7 @@ export default function RatePage() {
   const [guestId, setGuestId] = useState<number | null>(null);
   const [eventId, setEventId] = useState<number | null>(null);
   const [isRevealed, setIsRevealed] = useState<boolean>(false);
+  const [isLocked, setIsLocked] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -68,6 +69,7 @@ export default function RatePage() {
         if (flagsErr) throw flagsErr;
         const f = flags?.[0];
         setIsRevealed(!!f?.revealed);
+	setIsLocked(!!f?.locked);
 
         // load item header from your RPC
         const { data: itemsData, error: itemsErr } = await supabase.rpc('get_items_for_guest', { p_guest_id: g });
@@ -203,22 +205,43 @@ async function onSubmit(e: React.FormEvent) {
   } as const;
 
   if (loading) {
-    return <main style={wrap}><p>Loading…</p></main>;
-  }
+  return <main style={wrap}><p>Loading…</p></main>;
+}
 
-  if (err) {
-    return (
-      <main style={wrap}>
-        <p style={{ color: 'crimson' }}>{err}</p>
-        <p style={{ marginTop: 8 }}><Link href="/items" style={{ textDecoration: 'underline' }}>← Back to Items</Link></p>
-      </main>
-    );
-  }
+if (!isLocked && !isRevealed && !err) {
+  return (
+    <main style={wrap}>
+      <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 12 }}>
+        Ratings aren't open yet
+      </h1>
+      <p>
+        🔒 Ratings will open when the tasting begins. Check back soon!
+      </p>
+      <p style={{ marginTop: 16 }}>
+        <Link href="/items" style={{ textDecoration: 'underline' }}>
+          ← Back to Items
+        </Link>
+      </p>
+    </main>
+  );
+}
+
+if (err) {
+  return (
+    <main style={wrap}>
+      <p style={{ color: 'crimson' }}>{err}</p>
+      <p style={{ marginTop: 8 }}>
+        <Link href="/items" style={{ textDecoration: 'underline' }}>
+          ← Back to Items
+        </Link>
+      </p>
+    </main>
+  );
+}
 
   return (
     <main style={wrap}>
       <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 12 }}>{header}</h1>
-
       {/* If results are revealed, show read-only (no changes) */}
       {isRevealed && (
         <p style={{ color: '#555', marginBottom: 12 }}>
@@ -239,7 +262,7 @@ async function onSubmit(e: React.FormEvent) {
             placeholder="0–5"
             value={score}
             onChange={(e) => setScore(e.target.value)}
-            disabled={isRevealed}
+            disabled={!isLocked || isRevealed}
             required
           />
         </div>
@@ -255,7 +278,7 @@ async function onSubmit(e: React.FormEvent) {
             value={answer}
             onChange={(e) => setAnswer(e.target.value)}
             placeholder={promptShort ? `e.g., describe it as a ${promptShort}` : 'Your answer…'}
-            disabled={isRevealed}
+            disabled={!isLocked || isRevealed}
             required
           />
         </div>
@@ -270,12 +293,12 @@ async function onSubmit(e: React.FormEvent) {
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Anything else you noticed…"
-            disabled={isRevealed}
+            disabled={!isLocked || isRevealed}
           />
         </div>
 
         <div style={{ marginTop: 12 }}>
-          {!isRevealed && (
+          {isLocked && !isRevealed && (
             <button type="submit" style={saveBtn}>
               {existingRatingId ? 'Save changes' : 'Save rating'}
             </button>

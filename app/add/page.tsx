@@ -14,6 +14,10 @@ export default function AddItemPage() {
   const [kind, setKind] = useState<Kind>('wine');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [registeredItem, setRegisteredItem] = useState<{
+    kind: Kind;
+    number: number;
+  } | null>(null);
 
   // Shared
   const [name, setName] = useState('');
@@ -47,8 +51,8 @@ export default function AddItemPage() {
         if (error) throw error;
         const f = flags?.[0];
         if (f?.locked) {
-          router.push('/items'); // no adding when locked
-          return;
+  router.push('/items');
+  return;
         }
       } catch (e: any) {
         setErr(e.message ?? 'Failed to check event status');
@@ -116,10 +120,34 @@ if (abvNum !== null && (!isFinite(abvNum) || abvNum < 0 || abvNum > 25)) {
           p_style: style.trim() || null,
           p_pairing: pairing.trim() || null, // pairing_suggestions
         });
-        if (error) throw error;
+                if (error) throw error;
       }
 
-      router.push('/items');
+      const { data: itemsData, error: itemsErr } = await supabase.rpc(
+        'get_items_for_guest',
+        { p_guest_id: guestId }
+      );
+
+      if (itemsErr) throw itemsErr;
+
+      const myItems = (itemsData ?? [])
+        .filter(
+          (item: { brought_by_id: number | null; kind: Kind }) =>
+            item.brought_by_id === guestId && item.kind === kind
+        )
+        .sort(
+          (a: { item_id: number }, b: { item_id: number }) =>
+            b.item_id - a.item_id
+        );
+
+      if (!myItems.length) {
+        throw new Error('Item saved, but its assigned number could not be found.');
+      }
+
+      setRegisteredItem({
+        kind,
+        number: myItems[0].number,
+      });
     } catch (e: any) {
       setErr(e.message ?? 'Save failed');
     } finally {
@@ -354,7 +382,102 @@ if (abvNum !== null && (!isFinite(abvNum) || abvNum < 0 || abvNum > 25)) {
           </button>
         </div>
       </form>
+      {registeredItem && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.65)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+            zIndex: 1000,
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Registration confirmation"
+            style={{
+              background: '#fff',
+              color: '#222',
+              borderRadius: 16,
+              padding: '32px 24px',
+              maxWidth: 420,
+              width: '100%',
+              textAlign: 'center',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.25)',
+            }}
+          >
+            <div style={{ fontSize: 32, marginBottom: 12 }}>
+              ✅
+            </div>
 
+            <div
+              style={{
+                fontSize: 20,
+                fontWeight: 700,
+                marginBottom: 24,
+              }}
+            >
+              {registeredItem.kind === 'wine'
+                ? 'Wine registered successfully!'
+                : 'Cheese registered successfully!'}
+            </div>
+
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 700,
+                letterSpacing: '0.08em',
+                color: '#666',
+              }}
+            >
+              YOUR {registeredItem.kind.toUpperCase()} NUMBER
+            </div>
+
+            <div
+              style={{
+                fontSize: 64,
+                fontWeight: 700,
+                margin: '8px 0 20px',
+              }}
+            >
+              #{registeredItem.number}
+            </div>
+
+            <p
+              style={{
+                fontSize: 15,
+                lineHeight: 1.6,
+                marginBottom: 28,
+              }}
+            >
+              {registeredItem.kind === 'wine'
+                ? 'Please find the matching numbered label and attach it to your wine bottle.'
+                : 'Please find the matching numbered label and place it next to your cheese.'}
+            </p>
+
+            <button
+              type="button"
+              onClick={() => router.push('/items')}
+              style={{
+                background: '#10b981',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 10,
+                padding: '12px 32px',
+                fontSize: 15,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              Got it!
+            </button>
+          </div>
+        </div>
+      )}
       <p style={{ marginTop: 12 }}>
         <a href="/items" style={{ textDecoration: 'underline' }}>← Back to Items</a>
       </p>
