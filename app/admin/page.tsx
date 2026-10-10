@@ -374,7 +374,7 @@ async function removeGuestAdmin(targetGuestId: number, targetGuestName: string) 
   }
 
   const wrap = { maxWidth: 980, margin: '32px auto', padding: 16 } as const;
-  const card = { border: '1px solid #eee', borderRadius: 12, padding: 16, marginBottom: 16 } as const;
+  const card = {background: 'var(--background)', color: 'var(--foreground)', border: '1px solid var(--foreground)', borderRadius: 12, padding: 16, marginBottom: 16 } as const;
   const label = { fontWeight: 700 } as const;
   const input = { border: '1px solid #ccc', borderRadius: 8, padding: '8px 10px' } as const;
   const btn = { padding: '8px 12px', borderRadius: 8, border: '1px solid #999', cursor: 'pointer' } as const;
