@@ -383,7 +383,7 @@ async function removeGuestAdmin(targetGuestId: number, targetGuestName: string) 
   borderRadius: 10,
   border: on ? '2px solid #10b981' : '1px solid var(--foreground)',
   background: on ? '#065f46' : 'var(--background)',
-  color: 'var(--foreground)',
+  color: on ? '#fff' : 'var(--foreground)',
   fontWeight: on ? 700 : 600,
   cursor: 'pointer',
   minWidth: 120,
