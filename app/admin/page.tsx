@@ -482,49 +482,54 @@ async function removeGuestAdmin(targetGuestId: number, targetGuestName: string) 
           )}
         </div>
       </section>
+
       {/* Flags */}
-      <section style={card}>
-        <div style={{ marginBottom: 12 }}>
-          <div style={label}>Event controls</div>
-          <p style={{ color: '#555', margin: '6px 0 0' }}>
-            These toggles require admin mode.
-          </p>
+<section style={card}>
+  <div style={{ marginBottom: 12 }}>
+    <div style={label}>Event controls</div>
+    <p style={{ color: 'var(--foreground)', opacity: 0.75, margin: '6px 0 0' }}>
+      These toggles require admin mode.
+    </p>
+  </div>
+
+  {flags ? (
+    <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div>
+        <div style={{ marginBottom: 6, color: 'var(--foreground)', fontWeight: 600 }}>
+          Lock event
         </div>
+        <button
+          style={toggle(flags.locked)}
+          onClick={() => saveFlags({ locked: !flags.locked, revealed: flags.revealed })}
+          disabled={!isAdmin || saving}
+        >
+          {flags.locked ? 'Locked' : 'Open'}
+        </button>
+      </div>
 
-        {flags ? (
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-            <div>
-              <div style={{ marginBottom: 6, color: '#333', fontWeight: 600 }}>Lock event</div>
-              <button
-                style={toggle(flags.locked)}
-                onClick={() => saveFlags({ locked: !flags.locked, revealed: flags.revealed })}
-                disabled={!isAdmin || saving}
-              >
-                {flags.locked ? 'Locked' : 'Open'}
-              </button>
-            </div>
-
-            <div>
-              <div style={{ marginBottom: 6, color: '#333', fontWeight: 600 }}>Reveal results</div>
-              <button
-                style={toggle(flags.revealed)}
-                onClick={() => saveFlags({ locked: flags.locked, revealed: !flags.revealed })}
-                disabled={!isAdmin || saving}
-              >
-                {flags.revealed ? 'Revealed' : 'Hidden'}
-              </button>
-            </div>
-          </div>
-        ) : <p>Loading flags…</p>}
-      </section>
+      <div>
+        <div style={{ marginBottom: 6, color: 'var(--foreground)', fontWeight: 600 }}>
+          Reveal results
+        </div>
+        <button
+          style={toggle(flags.revealed)}
+          onClick={() => saveFlags({ locked: flags.locked, revealed: !flags.revealed })}
+          disabled={!isAdmin || saving}
+        >
+          {flags.revealed ? 'Revealed' : 'Hidden'}
+        </button>
+      </div>
+    </div>
+  ) : <p>Loading flags…</p>}
+</section>
 
       {/* Guest Progress */}
       <section style={card}>
         <div style={{ marginBottom: 12 }}>
           <div style={label}>Guest progress</div>
-          <p style={{ color: '#555', margin: '6px 0 0' }}>
-            See who has finished rating and which items are still missing.
-          </p>
+          <p style={{ color: 'var(--foreground)', opacity: 0.75, margin: '6px 0 0' }}>
+  	  See who has finished rating and which items are still missing.
+	  </p>
         </div>
 
         <button
@@ -562,7 +567,8 @@ async function removeGuestAdmin(targetGuestId: number, targetGuestName: string) 
                     <div
                       style={{
                         fontSize: 13,
-                        color: '#555',
+                        color: 'var(--foreground)',
+			opacity: 0.75,
                         marginTop: 2,
                       }}
                     >
