@@ -49,6 +49,9 @@ export default function ItemsPage() {
   const [items, setItems] = useState<ItemRow[]>([]);
   const [myRatings, setMyRatings] = useState<MyRating[]>([]);
   const [ratingProgress, setRatingProgress] = useState<RatingProgress[]>([]);
+  const [averageScores, setAverageScores] = useState<
+    { item_id: number; avg_score: number | null }[]
+  >([]);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -110,6 +113,21 @@ const [
         setItems((itemsData ?? []) as ItemRow[]);
         setMyRatings(ratingsData ?? []);
         setRatingProgress((progressData ?? []) as RatingProgress[]);
+if (f?.revealed) {
+  const { data: resultsData, error: resultsErr } = await supabase.rpc(
+    'get_event_results_for_guest',
+    { p_guest_id: g }
+  );
+
+  if (resultsErr) throw resultsErr;
+
+  setAverageScores(
+    (resultsData ?? []).map((r: any) => ({
+      item_id: r.item_id,
+      avg_score: r.avg_score,
+    }))
+  );
+}
       } catch (e: any) {
         setErr(e.message ?? 'Failed to load items');
       } finally {
@@ -160,7 +178,11 @@ const [
   // ---------- Styles ----------
 
   const pageWrap   = { maxWidth: 920, margin: '32px auto', padding: 16 } as const;
-  const smallGrey  = { fontSize: 13, color: '#555' } as const;
+  const smallGrey = {
+    fontSize: 13,
+    color: 'var(--foreground)',
+    opacity: 0.75,
+  } as const;
 
   const boxBase    = { borderRadius: 12, padding: 16, marginBottom: 24, border: '1px solid #eee' } as const;
   const boxWineRed = { ...boxBase, borderLeft: '6px solid #b91c1c', boxShadow: '0 1px 0 rgba(185,28,28,0.15)' } as const;
@@ -213,7 +235,7 @@ return (
                 padding: '8px 14px',
                 fontWeight: 600,
                 textDecoration: 'none',
-                color: '#222',
+                color: 'var(--foreground)',
               }}
             >
               + Add a wine or cheese
@@ -253,31 +275,33 @@ Wines
                       {rated ? '✅' : ''}
                     </div>
 
-                    {/* Vivino info (concealed until reveal) — small grey */}
-                    <div style={smallGrey}>
-                      {isRevealed ? (
-                        <>
-                          {w.vivino_avg != null ? `Vivino avg score: ${w.vivino_avg.toFixed(1)}` : 'Vivino avg score: —'}
-                          {w.vivino_url ? (
-                            <>
-                              {' '}•{' '}
-                              <a href={w.vivino_url} target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>
-                                Vivino link
-                              </a>
-                            </>
-                          ) : null}
-                        </>
-                      ) : (
-                        <>
-                          Vivino avg score: <em style={{ color: '#666' }}>??</em>
-                          {' '}•{' '}
-                          <span>
-                            Vivino link:{' '}
-                            <em style={{ color: '#666' }}>will be revealed after results are finalized</em>
-                          </span>
-                        </>
-                      )}
-                    </div>
+                    {/* Vivino info — only visible after results are revealed */}
+{isRevealed && (
+  <div style={smallGrey}>
+{(() => {
+  const avg = averageScores.find(r => r.item_id === w.item_id)?.avg_score;
+  return `Avg score: ${avg != null ? Number(avg).toFixed(1) : '—'}`;
+})()}
+{' '}•{' '}
+    {w.vivino_avg != null
+      ? `Vivino score: ${w.vivino_avg.toFixed(1)}`
+      : 'Vivino score: —'}
+
+    {w.vivino_url && (
+      <>
+        {' '}•{' '}
+        <a
+          href={w.vivino_url}
+          target="_blank"
+          rel="noreferrer"
+          style={{ textDecoration: 'underline' }}
+        >
+          Vivino link
+        </a>
+      </>
+    )}
+  </div>
+)}
 
                     {/* Pairing suggestions (🧀), same small grey size */}
                     {w.wine_pairing_suggestions ? (
@@ -369,6 +393,17 @@ Cheeses
                       {rated ? '✅' : ''}
                     </div>
 
+{/* Average score — only visible after results are revealed */}
+{isRevealed && (
+  <div style={smallGrey}>
+    Avg score: {
+      (() => {
+        const avg = averageScores.find(r => r.item_id === c.item_id)?.avg_score;
+        return avg != null ? Number(avg).toFixed(1) : '—';
+      })()
+    }
+  </div>
+)}
                     {/* Pairing suggestions (🍷), same small grey size */}
                     {c.cheese_pairing_suggestions ? (
                       <div style={{ ...smallGrey, marginTop: 4 }}>

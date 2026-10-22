@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 export default function JoinPage() {
   const router = useRouter();
   const [name, setName] = useState('');
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState('PARADISO');
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 

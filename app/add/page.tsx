@@ -178,8 +178,9 @@ if (abvNum !== null && (!isFinite(abvNum) || abvNum < 0 || abvNum > 25)) {
   const toggleBtn = (active: boolean) => ({
     padding: '8px 12px',
     borderRadius: 10,
-    border: active ? '2px solid #10b981' : '1px solid #ccc',
-    background: active ? '#ECFDF5' : '#fff',
+    border: active ? '2px solid #10b981' : '1px solid var(--foreground)',
+    background: active ? '#065f46' : 'var(--background)',
+    color: active ? '#fff' : 'var(--foreground)',
     fontWeight: active ? 700 : 600,
     cursor: 'pointer'
   }) as const;

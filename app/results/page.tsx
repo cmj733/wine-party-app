@@ -234,7 +234,11 @@ function lowestRatedGroups(list: Row[]): RankGroup[] {
   const boxWineRed = { ...boxBase, borderLeft: '6px solid #b91c1c', boxShadow: '0 1px 0 rgba(185,28,28,0.15)' } as const;
   const boxCheese  = { ...boxBase, borderLeft: '6px solid #e6b800', boxShadow: '0 1px 0 rgba(230,184,0,0.15)' } as const;
 
-  const statsLineStyle = { fontSize: 13, color: '#555' } as const; // medium grey
+  const statsLineStyle = {
+    fontSize: 13,
+    color: 'var(--foreground)',
+    opacity: 0.75,
+  } as const;
   const spacer = { height: 28 } as const; // “couple rows” spacer between blocks
 
   // Icon-only left column + content right column.
@@ -292,8 +296,8 @@ function lowestRatedGroups(list: Row[]): RankGroup[] {
       return (
   <>
     <div style={statsLineStyle}>
-      Avg: {avg} • SD: {sd} • Votes: {cnt} • Vivino: {viv} • Δ: {dif}{link}
-    </div>
+      Avg score: {avg} • SD: {sd} • Votes: {cnt} • Vivino score: {viv} • Δ: {dif}{link}
+   </div>
 
     {it?.brought_by_id && (
       <div style={{ fontSize: 13, color: '#555', marginTop: 2 }}>

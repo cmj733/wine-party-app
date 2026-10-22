@@ -300,7 +300,11 @@ function worstRatedGroups(list: StatRow[]): RankGroup[] {
   const thtd = { border: '1px solid #eee', padding: '8px 10px', verticalAlign: 'top' } as const;
   const th = { ...thtd, background: '#fafafa', fontWeight: 700 } as const;
 
-  const statsLineStyle = { fontSize: 13, color: '#555' } as const; // medium grey
+  const statsLineStyle = {
+    fontSize: 13,
+    color: 'var(--foreground)',
+    opacity: 0.75,
+  } as const;
 
   function iconsFor(itemId: number, kind: 'wine' | 'cheese') {
     const medal = medalByItemId.get(itemId);
@@ -353,7 +357,7 @@ function worstRatedGroups(list: StatRow[]): RankGroup[] {
       const dif = s.diff_vivino != null ? s.diff_vivino.toFixed(2) : '—';
       return (
         <div style={statsLineStyle}>
-          Avg: {avg} • SD: {sd} • Votes: {cnt} • Vivino: {viv} • Δ: {dif}
+          Avg score: {avg} • SD: {sd} • Votes: {cnt} • Vivino score: {viv} • Δ: {dif}
           {it.vivino_url ? <> • <a href={it.vivino_url} target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>Vivino link</a></> : null}
         </div>
       );
