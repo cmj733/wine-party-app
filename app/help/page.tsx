@@ -101,7 +101,8 @@ setRegisteredItems(
     display: 'block',
     width: 'fit-content',
     fontSize: 14,
-    color: '#555',
+    color: 'var(--foreground)',
+    opacity: 0.75,
     textDecoration: 'underline',
     cursor: 'pointer',
   } as const;

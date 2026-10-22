@@ -298,7 +298,12 @@ function worstRatedGroups(list: StatRow[]): RankGroup[] {
 
   const tableStyle = { width: '100%', borderCollapse: 'collapse', fontSize: 14, marginTop: 10 } as const;
   const thtd = { border: '1px solid #eee', padding: '8px 10px', verticalAlign: 'top' } as const;
-  const th = { ...thtd, background: '#fafafa', fontWeight: 700 } as const;
+  const th = {
+  ...thtd,
+  background: 'var(--background)',
+  color: 'var(--foreground)',
+  fontWeight: 700,
+} as const;
 
   const statsLineStyle = {
     fontSize: 13,
@@ -364,7 +369,7 @@ function worstRatedGroups(list: StatRow[]): RankGroup[] {
     }
     return (
       <div style={statsLineStyle}>
-        Avg: {avg} • SD: {sd} • Votes: {cnt}
+        Avg score: {avg} • SD: {sd} • Votes: {cnt}
       </div>
     );
   }
@@ -395,7 +400,7 @@ function worstRatedGroups(list: StatRow[]): RankGroup[] {
               return (
                 <li key={it.item_id} style={{ marginBottom: 16 }}>
                   {/* Two-column layout: fixed icon column + fluid content column */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '54px 1fr', alignItems: 'start', gap: 8 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '54px minmax(0, 1fr)', alignItems: 'start', gap: 8 }}>
                     {/* Icon column (fixed width). 
                         Tweak with lineHeight + translateY to visually align with the title text. */}
                     <div style={{ width: 54, textAlign: 'center', lineHeight: '24px', transform: 'translateY(7.5px)' }}>
@@ -426,17 +431,23 @@ function worstRatedGroups(list: StatRow[]): RankGroup[] {
                         <div
                           style={{
                             fontSize: 13,
-                            color: '#555',
-                            marginTop: 3,
+			    color: 'var(--foreground)',
+			    opacity: 0.75,
+			    marginTop: 3,
                           }}
                         >
                           Brought by: {guestNameById.get(it.brought_by_id) ?? 'Unknown'}
                         </div>
                       )}
                       {/* Ratings table */}
-                      {isOpen && rows.length > 0 && (
-                        <div style={{ marginTop: 10 }}>
-                          <table style={tableStyle}>
+{isOpen && rows.length > 0 && (
+  <div style={{
+    marginTop: 10,
+    maxWidth: '100%',
+    minWidth: 0,
+    overflowX: 'auto',
+  }}>
+    <table style={tableStyle}>
                             <thead>
                               <tr>
                                 <th style={th}>Guest</th>
@@ -509,8 +520,9 @@ function worstRatedGroups(list: StatRow[]): RankGroup[] {
       {!loading && isAdmin && !revealed && (
         <p
           style={{
-            color: '#555',
-            fontSize: 13,
+            color: 'var(--foreground)',
+	    opacity: 0.75,
+	    fontSize: 13,
             marginTop: -8,
             marginBottom: 20,
           }}

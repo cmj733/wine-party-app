@@ -404,7 +404,7 @@ async function removeGuestAdmin(targetGuestId: number, targetGuestName: string) 
       <section style={card}>
         <div style={{ marginBottom: 8 }}>
           <div style={label}>Admin mode</div>
-          <p style={{ color: '#555', margin: '6px 0 12px' }}>
+          <p style={{ color: 'var(--foreground)', opacity: 0.75, margin: '6px 0 12px' }}>
             Enter the event’s admin code to enable admin-only controls for this event.
           </p>
         </div>
@@ -430,7 +430,7 @@ async function removeGuestAdmin(targetGuestId: number, targetGuestName: string) 
       <section style={card}>
         <div style={{ marginBottom: 12 }}>
           <div style={label}>Create new event</div>
-          <p style={{ color: '#555', margin: '6px 0 0' }}>
+          <p style={{ color: 'var(--foreground)', opacity: 0.75, margin: '6px 0 0' }}>
             Create a new tasting event. You will automatically become the first guest and admin.
           </p>
         </div>
@@ -587,7 +587,7 @@ async function removeGuestAdmin(targetGuestId: number, targetGuestName: string) 
 <section style={card}>
   <div style={{ marginBottom: 12 }}>
     <div style={label}>Manage guests</div>
-    <p style={{ color: '#555', margin: '6px 0 0' }}>
+    <p style={{ color: 'var(--foreground)', opacity: 0.75, margin: '6px 0 0' }}>
       Remove accidental or duplicate guests from this event.
     </p>
   </div>
@@ -615,7 +615,7 @@ async function removeGuestAdmin(targetGuestId: number, targetGuestName: string) 
             <strong>{g.name}</strong>
 
             {isMe && (
-              <span style={{ fontSize: 13, color: '#555' }}>
+              <span style={{ fontSize: 13, color: 'var(--foreground)', opacity: 0.75 }}>
                 {' '}— You
               </span>
             )}
@@ -623,10 +623,11 @@ async function removeGuestAdmin(targetGuestId: number, targetGuestName: string) 
             {progress && (
               <div
                 style={{
-                  fontSize: 13,
-                  color: '#555',
-                  marginTop: 2,
-                }}
+  fontSize: 13,
+  color: 'var(--foreground)',
+  opacity: 0.75,
+  marginTop: 2,
+}}
               >
                 {progress.rated_count}/{progress.total_items} items rated
               </div>
@@ -706,7 +707,7 @@ async function removeGuestAdmin(targetGuestId: number, targetGuestName: string) 
       <section style={card}>
         <div style={{ marginBottom: 8 }}>
           <div style={label}>Manage items</div>
-          <p style={{ color: '#555', margin: '6px 0 12px' }}>
+          <p style={{ color: 'var(--foreground)', opacity: 0.75, margin: '6px 0 12px' }}>
             Edit or delete any wine/cheese. Lock/reveal is ignored for admins (server-checked).
           </p>
         </div>
@@ -732,7 +733,7 @@ async function removeGuestAdmin(targetGuestId: number, targetGuestName: string) 
       <section style={card}>
         <div style={{ marginBottom: 8 }}>
           <div style={label}>Manage ratings</div>
-          <p style={{ color: '#555', margin: '6px 0 12px' }}>
+          <p style={{ color: 'var(--foreground)', opacity: 0.75, margin: '6px 0 12px' }}>
             Edit any guest’s rating for any item. Requires admin mode.
           </p>
         </div>

@@ -228,7 +228,11 @@ function lowestRatedGroups(list: Row[]): RankGroup[] {
   const cheeseToughCrowd = useMemo(() => lowestRatedGroups(cheeses), [cheeses]);
 
   // ---------- UI helpers & styles ----------
-  const small = { fontSize: 13, color: '#666' } as const;
+  const small = {
+  fontSize: 13,
+  color: 'var(--foreground)',
+  opacity: 0.75,
+} as const;
 
   const boxBase    = { borderRadius: 12, padding: 16, marginBottom: 24, border: '1px solid #eee' } as const;
   const boxWineRed = { ...boxBase, borderLeft: '6px solid #b91c1c', boxShadow: '0 1px 0 rgba(185,28,28,0.15)' } as const;
@@ -250,7 +254,7 @@ function lowestRatedGroups(list: Row[]): RankGroup[] {
           {icon}
         </div>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#444', marginBottom: 2 }}>{label}</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)', opacity: 0.75, marginBottom: 2 }}>{label}</div>
           <div>{header}</div>
           {statsEl ? <div style={{ marginTop: 4 }}>{statsEl}</div> : null}
         </div>
@@ -300,21 +304,21 @@ function lowestRatedGroups(list: Row[]): RankGroup[] {
    </div>
 
     {it?.brought_by_id && (
-      <div style={{ fontSize: 13, color: '#555', marginTop: 2 }}>
-        Brought by: {guestNameById.get(it.brought_by_id) ?? 'Unknown'}
-      </div>
-    )}
+  <div style={{ fontSize: 13, color: 'var(--foreground)', opacity: 0.75, marginTop: 2 }}>
+    Brought by: {guestNameById.get(it.brought_by_id) ?? 'Unknown'}
+  </div>
+)}
   </>
 );
     }
     return (
   <>
     <div style={statsLineStyle}>
-      Avg: {avg} • SD: {sd} • Votes: {cnt}
+      Avg score: {avg} • SD: {sd} • Votes: {cnt}
     </div>
 
     {it?.brought_by_id && (
-      <div style={{ fontSize: 13, color: '#555', marginTop: 2 }}>
+      <div style={{ fontSize: 13, color: 'var(--foreground)', opacity: 0.75, marginTop: 2 }}>
         Brought by: {guestNameById.get(it.brought_by_id) ?? 'Unknown'}
       </div>
     )}
@@ -423,7 +427,8 @@ function renderToughCrowd(kind: 'wine' | 'cheese', groups: RankGroup[]) {
       {!loading && isAdmin && !revealed && (
   <p
     style={{
-      color: '#555',
+      color: 'var(--foreground)',
+      opacity: 0.75,
       fontSize: 13,
       marginTop: -14,
       marginBottom: 20,
